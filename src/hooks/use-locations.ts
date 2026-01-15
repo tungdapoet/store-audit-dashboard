@@ -1,0 +1,157 @@
+// ============================================
+// Locations Hook - CRUD operations for floor plan markers
+// ============================================
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { QUERY_STALE_TIME } from '@/lib/constants';
+import type { Location, LocationFormData } from '@/types';
+
+/**
+ * Fetch all locations for a store
+ */
+export function useLocations(storeId: string | null) {
+  return useQuery({
+    queryKey: ['locations', storeId],
+    queryFn: async () => {
+      if (!storeId) return [];
+
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('store_id', storeId)
+        .order('name');
+
+      if (error) throw error;
+      return data as Location[];
+    },
+    enabled: !!storeId,
+    staleTime: QUERY_STALE_TIME,
+  });
+}
+
+/**
+ * Create a new location
+ */
+export function useCreateLocation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      ...data
+    }: LocationFormData & { storeId: string }) => {
+      const { data: location, error } = await supabase
+        .from('locations')
+        .insert({
+          store_id: storeId,
+          ...data,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return location as Location;
+    },
+    onSuccess: (location) => {
+      queryClient.invalidateQueries({
+        queryKey: ['locations', location.store_id],
+      });
+    },
+  });
+}
+
+/**
+ * Update a location
+ */
+export function useUpdateLocation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      storeId,
+      ...data
+    }: Partial<Location> & { id: string; storeId: string }) => {
+      const { data: location, error } = await supabase
+        .from('locations')
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { location: location as Location, storeId };
+    },
+    onSuccess: ({ storeId }) => {
+      queryClient.invalidateQueries({ queryKey: ['locations', storeId] });
+    },
+  });
+}
+
+/**
+ * Delete a location
+ */
+export function useDeleteLocation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      locationId,
+      storeId,
+    }: {
+      locationId: string;
+      storeId: string;
+    }) => {
+      const { error } = await supabase
+        .from('locations')
+        .delete()
+        .eq('id', locationId);
+
+      if (error) throw error;
+      return { storeId };
+    },
+    onSuccess: ({ storeId }) => {
+      queryClient.invalidateQueries({ queryKey: ['locations', storeId] });
+    },
+  });
+}
+
+/**
+ * Batch update location positions (for drag operations)
+ */
+export function useBatchUpdateLocations() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      storeId,
+      updates,
+    }: {
+      storeId: string;
+      updates: Array<{ id: string; x: number; y: number }>;
+    }) => {
+      // Use Promise.all for batch updates
+      const results = await Promise.all(
+        updates.map(({ id, x, y }) =>
+          supabase
+            .from('locations')
+            .update({ x, y, updated_at: new Date().toISOString() })
+            .eq('id', id)
+        )
+      );
+
+      // Check for any errors
+      const error = results.find((r) => r.error)?.error;
+      if (error) throw error;
+
+      return { storeId };
+    },
+    onSuccess: ({ storeId }) => {
+      queryClient.invalidateQueries({ queryKey: ['locations', storeId] });
+    },
+  });
+}
