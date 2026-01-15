@@ -61,10 +61,7 @@ export function useCreateStore() {
     mutationFn: async (data: StoreFormData) => {
       const { data: store, error } = await supabase
         .from('stores')
-        .insert({
-          ...data,
-          status: 'pending',
-        })
+        .insert(data)
         .select()
         .single();
 
