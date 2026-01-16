@@ -62,7 +62,7 @@ export function useCreateLocation() {
 }
 
 /**
- * Update a location
+ * Update a location (with optimistic updates for smooth drag)
  */
 export function useUpdateLocation() {
   const queryClient = useQueryClient();
@@ -86,8 +86,36 @@ export function useUpdateLocation() {
       if (error) throw error;
       return { location: location as Location, storeId };
     },
-    onSuccess: ({ storeId }) => {
-      queryClient.invalidateQueries({ queryKey: ['locations', storeId] });
+    // Optimistic update - immediately update cache before server response
+    onMutate: async ({ id, storeId, ...data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['locations', storeId] });
+
+      // Snapshot the previous value
+      const previousLocations = queryClient.getQueryData<Location[]>(['locations', storeId]);
+
+      // Optimistically update to the new value
+      if (previousLocations) {
+        queryClient.setQueryData<Location[]>(
+          ['locations', storeId],
+          previousLocations.map(loc =>
+            loc.id === id ? { ...loc, ...data } : loc
+          )
+        );
+      }
+
+      // Return context with the previous value
+      return { previousLocations, storeId };
+    },
+    // If the mutation fails, use the context to roll back
+    onError: (_err, _variables, context) => {
+      if (context?.previousLocations) {
+        queryClient.setQueryData(['locations', context.storeId], context.previousLocations);
+      }
+    },
+    // Always refetch after error or success
+    onSettled: (_data, _error, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['locations', variables.storeId] });
     },
   });
 }
