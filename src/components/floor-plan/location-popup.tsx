@@ -129,16 +129,16 @@ export function LocationPopup({
   return (
     <div className="w-96 bg-card border border-border rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[80vh]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border bg-card">
+      <div className="flex items-center justify-between p-3 border-b border-border bg-card">
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <MapPin className="h-5 w-5 text-primary flex-shrink-0" />
           {isEditingName && isEditMode ? (
-            <div className="flex items-center gap-1 flex-1">
+            <div className="flex items-center gap-2 flex-1">
               <input
                 type="text"
                 value={locationName}
                 onChange={(e) => setLocationName(e.target.value)}
-                className="flex-1 px-2 py-1 text-lg font-semibold bg-input-background border border-border rounded"
+                className="w-full max-w-[180px] px-2 py-1 text-sm font-semibold bg-input-background border border-border rounded focus:outline-none focus:ring-1 focus:ring-primary"
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleSaveName();
@@ -150,39 +150,42 @@ export function LocationPopup({
               />
               <button
                 onClick={handleSaveName}
-                className="p-1 hover:bg-secondary rounded"
+                className="p-1.5 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                title="Save"
               >
-                <Check className="h-4 w-4 text-primary" />
+                <Check className="h-4 w-4" />
               </button>
               <button
                 onClick={() => {
                   setIsEditingName(false);
                   setLocationName(location.name);
                 }}
-                className="p-1 hover:bg-secondary rounded"
+                className="p-1.5 bg-secondary text-secondary-foreground rounded hover:bg-secondary/80"
+                title="Cancel"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-2 flex-1 min-w-0">
-              <h2 className="text-lg font-semibold truncate">{location.name}</h2>
+              <h2 className="text-base font-semibold truncate">{location.name}</h2>
               {isEditMode && (
                 <button
                   onClick={() => setIsEditingName(true)}
                   className="p-1 hover:bg-secondary rounded flex-shrink-0"
+                  title="Edit name"
                 >
-                  <Pencil className="h-4 w-4 text-muted-foreground" />
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                 </button>
               )}
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
           {isEditMode && (
             <button
               onClick={onDelete}
-              className="p-2 hover:bg-destructive/10 text-destructive rounded-lg"
+              className="p-1.5 hover:bg-destructive/10 text-destructive rounded"
               title="Delete location"
             >
               <Trash2 className="h-4 w-4" />
@@ -190,9 +193,10 @@ export function LocationPopup({
           )}
           <button
             onClick={onClose}
-            className="p-2 hover:bg-secondary rounded-lg"
+            className="p-1.5 hover:bg-secondary rounded"
+            title="Close"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
       </div>
