@@ -540,21 +540,21 @@ function PhotoSection({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
         <Camera className="h-4 w-4" />
         {title}
       </h3>
 
-      {/* Photo Grid */}
+      {/* Photo Grid - only show if there are photos */}
       {isLoading ? (
-        <div className="grid grid-cols-3 gap-2">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="aspect-square bg-muted/50 rounded-lg animate-pulse" />
+        <div className="grid grid-cols-4 gap-1.5">
+          {[1, 2].map((i) => (
+            <div key={i} className="aspect-square bg-muted/50 rounded animate-pulse" />
           ))}
         </div>
-      ) : photos.length > 0 ? (
-        <div className="grid grid-cols-3 gap-2">
+      ) : photos.length > 0 && (
+        <div className="grid grid-cols-4 gap-1.5">
           {photos.map((photo) => (
             <div
               key={photo.id}
@@ -564,26 +564,26 @@ function PhotoSection({
               <img
                 src={getStorageUrl(photo.thumbnail_path)}
                 alt="Photo"
-                className="w-full h-full object-cover rounded-lg hover:opacity-90 transition-opacity"
+                className="w-full h-full object-cover rounded hover:opacity-90 transition-opacity"
               />
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded-lg">
-                <ZoomIn className="h-6 w-6 text-white" />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30 rounded">
+                <ZoomIn className="h-5 w-5 text-white" />
               </div>
               {isEditMode && (
                 <button
                   onClick={(e) => handleDelete(photo, e)}
                   disabled={deletePhoto.isPending}
-                  className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-0.5 right-0.5 p-0.5 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  <X className="h-3 w-3" />
+                  <X className="h-2.5 w-2.5" />
                 </button>
               )}
             </div>
           ))}
         </div>
-      ) : null}
+      )}
 
-      {/* Upload Area */}
+      {/* Compact Upload Area - only in edit mode */}
       {isEditMode && (
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
@@ -602,7 +602,7 @@ function PhotoSection({
             fileInputRef.current?.click();
           }}
           className={cn(
-            'border-2 border-dashed rounded-lg p-3 text-center cursor-pointer transition-colors',
+            'border border-dashed rounded p-2 text-center cursor-pointer transition-colors flex items-center justify-center gap-2',
             isDragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
           )}
         >
@@ -621,20 +621,17 @@ function PhotoSection({
             }}
             className="hidden"
           />
-          <Upload className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
-          <p className="text-xs text-muted-foreground">
-            Upload or paste
-          </p>
-          {uploadPhoto.isPending && (
-            <p className="text-xs text-primary mt-1">Uploading...</p>
-          )}
+          <Upload className="h-4 w-4 text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">
+            {uploadPhoto.isPending ? 'Uploading...' : 'Upload or paste'}
+          </span>
         </div>
       )}
 
-      {/* Date Field */}
-      <div>
-        <label className="block text-xs text-muted-foreground mb-1">
-          {dateLabel}
+      {/* Date Field - Compact inline layout */}
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-muted-foreground whitespace-nowrap">
+          {dateLabel}:
         </label>
         <input
           type="text"
@@ -643,10 +640,10 @@ function PhotoSection({
           disabled={!isEditMode}
           placeholder="e.g. Jan 15, 2024"
           className={cn(
-            'w-full px-3 py-2 rounded-lg text-sm',
+            'flex-1 px-2 py-1 rounded text-sm',
             'bg-input-background border border-border',
             'placeholder:text-muted-foreground',
-            'focus:outline-none focus:ring-2 focus:ring-ring',
+            'focus:outline-none focus:ring-1 focus:ring-ring',
             !isEditMode && 'opacity-60'
           )}
         />
