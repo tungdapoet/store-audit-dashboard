@@ -133,11 +133,6 @@ function AppContent() {
     }
   };
 
-  const handleLocationSelect = (locationId: string) => {
-    setSelectedLocationId(locationId);
-    setActiveTab('locations');
-  };
-
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
@@ -172,8 +167,6 @@ function AppContent() {
                 <FloorPlanViewer
                   store={selectedStore}
                   isEditMode={isEditMode}
-                  onLocationSelect={handleLocationSelect}
-                  selectedLocationId={selectedLocationId}
                 />
               )}
               {activeTab === 'locations' && selectedStore && (

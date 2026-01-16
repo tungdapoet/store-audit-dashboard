@@ -6,19 +6,16 @@ import { supabase, STORAGE_BUCKET, getStorageUrl } from '@/lib/supabase';
 import { compressImage } from '@/lib/image-processing';
 import type { Store, Location } from '@/types';
 import { toast } from 'sonner';
+import { LocationPopup } from './location-popup';
 
 interface FloorPlanViewerProps {
   store: Store;
   isEditMode: boolean;
-  onLocationSelect?: (locationId: string) => void;
-  selectedLocationId?: string | null;
 }
 
 export function FloorPlanViewer({
   store,
   isEditMode,
-  onLocationSelect,
-  selectedLocationId,
 }: FloorPlanViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -26,12 +23,15 @@ export function FloorPlanViewer({
   const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null);
   const [newMarkerName, setNewMarkerName] = useState('');
   const [pendingMarker, setPendingMarker] = useState<{ x: number; y: number } | null>(null);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
 
   // Data fetching
   const { data: locations = [] } = useLocations(store.id);
   const createLocation = useCreateLocation();
   const updateLocation = useUpdateLocation();
   const deleteLocation = useDeleteLocation();
+
+  const selectedLocation = locations.find(l => l.id === selectedLocationId);
 
   // Handle floor plan upload
   const handleUpload = useCallback(async (file: File) => {
@@ -100,13 +100,14 @@ export function FloorPlanViewer({
     if (!pendingMarker || !newMarkerName.trim()) return;
 
     try {
-      await createLocation.mutateAsync({
+      const result = await createLocation.mutateAsync({
         storeId: store.id,
         name: newMarkerName.trim(),
         x: pendingMarker.x,
         y: pendingMarker.y,
       });
       toast.success('Location added');
+      setSelectedLocationId(result.id);
     } catch (error) {
       toast.error('Failed to add location');
     } finally {
@@ -155,10 +156,13 @@ export function FloorPlanViewer({
         storeId: store.id,
       });
       toast.success('Location deleted');
+      if (selectedLocationId === locationId) {
+        setSelectedLocationId(null);
+      }
     } catch (error) {
       toast.error('Failed to delete location');
     }
-  }, [store.id, deleteLocation]);
+  }, [store.id, deleteLocation, selectedLocationId]);
 
   // No floor plan uploaded
   if (!store.floor_plan_url) {
@@ -246,85 +250,100 @@ export function FloorPlanViewer({
         </div>
       )}
 
-      {/* Floor Plan with Markers */}
-      <div
-        ref={containerRef}
-        className={cn(
-          'relative overflow-hidden rounded-xl border border-border',
-          isAddingMarker && 'cursor-crosshair'
-        )}
-        onClick={handleFloorPlanClick}
-      >
-        <img
-          src={store.floor_plan_url}
-          alt="Floor Plan"
-          className="w-full h-auto"
-          draggable={false}
-        />
-
-        {/* Existing Markers */}
-        {locations.map((location, index) => (
-          <Marker
-            key={location.id}
-            location={location}
-            index={index}
-            isSelected={location.id === selectedLocationId}
-            isEditMode={isEditMode}
-            isDragging={location.id === draggingMarkerId}
-            onSelect={() => onLocationSelect?.(location.id)}
-            onDragStart={() => setDraggingMarkerId(location.id)}
-            onDragEnd={(e) => handleMarkerDragEnd(location.id, e)}
-            onDelete={() => handleDeleteMarker(location.id)}
+      {/* Floor Plan with Markers and Popup */}
+      <div className="flex gap-4">
+        {/* Floor Plan */}
+        <div
+          ref={containerRef}
+          className={cn(
+            'relative overflow-hidden rounded-xl border border-border flex-1',
+            isAddingMarker && 'cursor-crosshair'
+          )}
+          onClick={handleFloorPlanClick}
+        >
+          <img
+            src={store.floor_plan_url}
+            alt="Floor Plan"
+            className="w-full h-auto"
+            draggable={false}
           />
-        ))}
 
-        {/* Pending Marker (being added) */}
-        {pendingMarker && (
-          <div
-            className="absolute z-20"
-            style={{
-              left: `${pendingMarker.x}%`,
-              top: `${pendingMarker.y}%`,
-              transform: 'translate(-50%, -100%)',
-            }}
-          >
-            <div className="flex flex-col items-center">
-              <div className="bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg mb-2">
-                <input
-                  type="text"
-                  value={newMarkerName}
-                  onChange={(e) => setNewMarkerName(e.target.value)}
-                  className="bg-transparent border-none outline-none text-sm w-32"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleConfirmMarker();
-                    if (e.key === 'Escape') {
-                      setPendingMarker(null);
-                      setIsAddingMarker(false);
-                    }
-                  }}
-                />
-                <div className="flex gap-1 mt-2">
-                  <button
-                    onClick={handleConfirmMarker}
-                    className="p-1 rounded bg-white/20 hover:bg-white/30"
-                  >
-                    <Check className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPendingMarker(null);
-                      setIsAddingMarker(false);
+          {/* Existing Markers */}
+          {locations.map((location) => (
+            <Marker
+              key={location.id}
+              location={location}
+              isSelected={location.id === selectedLocationId}
+              isEditMode={isEditMode}
+              isDragging={location.id === draggingMarkerId}
+              onSelect={() => setSelectedLocationId(
+                selectedLocationId === location.id ? null : location.id
+              )}
+              onDragStart={() => setDraggingMarkerId(location.id)}
+              onDragEnd={(e) => handleMarkerDragEnd(location.id, e)}
+              onDelete={() => handleDeleteMarker(location.id)}
+            />
+          ))}
+
+          {/* Pending Marker (being added) */}
+          {pendingMarker && (
+            <div
+              className="absolute z-20"
+              style={{
+                left: `${pendingMarker.x}%`,
+                top: `${pendingMarker.y}%`,
+                transform: 'translate(-50%, -100%)',
+              }}
+            >
+              <div className="flex flex-col items-center">
+                <div className="bg-primary text-primary-foreground px-3 py-2 rounded-lg shadow-lg mb-2">
+                  <input
+                    type="text"
+                    value={newMarkerName}
+                    onChange={(e) => setNewMarkerName(e.target.value)}
+                    className="bg-transparent border-none outline-none text-sm w-32"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleConfirmMarker();
+                      if (e.key === 'Escape') {
+                        setPendingMarker(null);
+                        setIsAddingMarker(false);
+                      }
                     }}
-                    className="p-1 rounded bg-white/20 hover:bg-white/30"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                  />
+                  <div className="flex gap-1 mt-2">
+                    <button
+                      onClick={handleConfirmMarker}
+                      className="p-1 rounded bg-white/20 hover:bg-white/30"
+                    >
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPendingMarker(null);
+                        setIsAddingMarker(false);
+                      }}
+                      className="p-1 rounded bg-white/20 hover:bg-white/30"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
+                <MapPin className="h-8 w-8 text-primary drop-shadow-lg" />
               </div>
-              <MapPin className="h-8 w-8 text-primary drop-shadow-lg" />
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* Location Popup Panel */}
+        {selectedLocation && (
+          <LocationPopup
+            location={selectedLocation}
+            storeId={store.id}
+            isEditMode={isEditMode}
+            onClose={() => setSelectedLocationId(null)}
+            onDelete={() => handleDeleteMarker(selectedLocation.id)}
+          />
         )}
       </div>
 
@@ -345,7 +364,7 @@ export function FloorPlanViewer({
   );
 }
 
-// Marker Component
+// Marker Component - shows abbreviated location name
 interface MarkerProps {
   location: Location;
   isSelected: boolean;
@@ -366,9 +385,19 @@ function Marker({
   onDragStart,
   onDragEnd,
   onDelete,
-  index,
-}: MarkerProps & { index: number }) {
+}: MarkerProps) {
   const [showLabel, setShowLabel] = useState(false);
+
+  // Get abbreviated name (first 3 chars or first letter of each word)
+  const getAbbreviation = (name: string) => {
+    const words = name.trim().split(/\s+/);
+    if (words.length > 1) {
+      // Multiple words: take first letter of each (max 3)
+      return words.slice(0, 3).map(w => w[0]).join('').toUpperCase();
+    }
+    // Single word: take first 3 chars
+    return name.slice(0, 3).toUpperCase();
+  };
 
   return (
     <div
@@ -406,7 +435,7 @@ function Marker({
         )}
       </div>
 
-      {/* High-visibility numbered circle marker */}
+      {/* Name-based marker */}
       <button
         onClick={onSelect}
         onMouseEnter={() => setShowLabel(true)}
@@ -417,8 +446,8 @@ function Marker({
         onTouchEnd={isEditMode && isDragging ? onDragEnd : undefined}
         className={cn(
           'relative flex items-center justify-center',
-          'w-8 h-8 rounded-full',
-          'font-bold text-sm text-white',
+          'min-w-8 h-8 px-2 rounded-full',
+          'font-bold text-xs text-white',
           'shadow-[0_2px_8px_rgba(0,0,0,0.4)]',
           'border-2 border-white',
           'transition-all duration-150',
@@ -427,7 +456,7 @@ function Marker({
           isEditMode && 'cursor-move'
         )}
       >
-        {index + 1}
+        {getAbbreviation(location.name)}
       </button>
     </div>
   );
