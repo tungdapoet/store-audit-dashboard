@@ -53,6 +53,7 @@ export function LocationPopup({
   const [lastInstallDate, setLastInstallDate] = useState(
     locationData?.last_install_date || ''
   );
+  const [notes, setNotes] = useState(locationData?.notes || '');
   const [hasChanges, setHasChanges] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
@@ -67,6 +68,7 @@ export function LocationPopup({
       setMeasurements(locationData.measurements);
       setLastAuditDate(locationData.last_audit_date || '');
       setLastInstallDate(locationData.last_install_date || '');
+      setNotes(locationData.notes || '');
       setHasChanges(false);
     }
   }, [locationData]);
@@ -114,6 +116,7 @@ export function LocationPopup({
         locationId: location.id,
         measurement_type: measurementType,
         measurements,
+        notes: notes || undefined,
         last_audit_date: lastAuditDate || undefined,
         last_install_date: lastInstallDate || undefined,
       });
@@ -391,6 +394,28 @@ export function LocationPopup({
                   />
                 </div>
               )}
+            </div>
+
+            {/* Section: Notes */}
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-medium text-muted-foreground">Notes</h3>
+              <textarea
+                value={notes}
+                onChange={(e) => {
+                  setNotes(e.target.value);
+                  setHasChanges(true);
+                }}
+                disabled={!isEditMode}
+                rows={2}
+                placeholder="Add notes about this location..."
+                className={cn(
+                  'w-full px-3 py-2 rounded-lg resize-none text-sm',
+                  'bg-input-background border border-border',
+                  'placeholder:text-muted-foreground',
+                  'focus:outline-none focus:ring-2 focus:ring-ring',
+                  !isEditMode && 'opacity-60'
+                )}
+              />
             </div>
 
             {/* Section 2: Audit Photo */}
