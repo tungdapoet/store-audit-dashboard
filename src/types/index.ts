@@ -61,7 +61,7 @@ export type Measurement = MirrorDoorMeasurement | ColumnMeasurement | WallMeasur
 export interface Photo {
   id: string;
   location_id: string;
-  type: 'audit' | 'install';
+  type: 'audit' | 'install' | 'brief';
   storage_path: string;
   thumbnail_path: string;
   uploaded_by: string | null;

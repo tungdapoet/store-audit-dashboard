@@ -418,7 +418,16 @@ export function LocationPopup({
               />
             </div>
 
-            {/* Section 2: Audit Photo */}
+            {/* Section 2: Brief Photo */}
+            <PhotoSection
+              title="Brief Photo"
+              locationId={location.id}
+              storeId={storeId}
+              photoType="brief"
+              isEditMode={isEditMode}
+            />
+
+            {/* Section 3: Audit Photo */}
             <PhotoSection
               title="Audit Photo"
               locationId={location.id}
@@ -433,7 +442,7 @@ export function LocationPopup({
               dateLabel="Latest Audit Date"
             />
 
-            {/* Section 3: Install Photo */}
+            {/* Section 4: Install Photo */}
             <PhotoSection
               title="Install Photo"
               locationId={location.id}
@@ -478,11 +487,11 @@ interface PhotoSectionProps {
   title: string;
   locationId: string;
   storeId: string;
-  photoType: 'audit' | 'install';
+  photoType: 'audit' | 'install' | 'brief';
   isEditMode: boolean;
-  dateValue: string;
-  onDateChange: (date: string) => void;
-  dateLabel: string;
+  dateValue?: string;
+  onDateChange?: (date: string) => void;
+  dateLabel?: string;
 }
 
 function PhotoSection({
@@ -657,26 +666,28 @@ function PhotoSection({
         </div>
       )}
 
-      {/* Date Field - Compact inline layout */}
-      <div className="flex items-center gap-2">
-        <label className="text-xs text-muted-foreground whitespace-nowrap">
-          {dateLabel}:
-        </label>
-        <input
-          type="text"
-          value={dateValue}
-          onChange={(e) => onDateChange(e.target.value)}
-          disabled={!isEditMode}
-          placeholder="e.g. Jan 15, 2024"
-          className={cn(
-            'flex-1 px-2 py-1 rounded text-sm',
-            'bg-input-background border border-border',
-            'placeholder:text-muted-foreground',
-            'focus:outline-none focus:ring-1 focus:ring-ring',
-            !isEditMode && 'opacity-60'
-          )}
-        />
-      </div>
+      {/* Date Field - Only show if dateLabel is provided */}
+      {dateLabel && onDateChange && (
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">
+            {dateLabel}:
+          </label>
+          <input
+            type="text"
+            value={dateValue || ''}
+            onChange={(e) => onDateChange(e.target.value)}
+            disabled={!isEditMode}
+            placeholder="e.g. Jan 15, 2024"
+            className={cn(
+              'flex-1 px-2 py-1 rounded text-sm',
+              'bg-input-background border border-border',
+              'placeholder:text-muted-foreground',
+              'focus:outline-none focus:ring-1 focus:ring-ring',
+              !isEditMode && 'opacity-60'
+            )}
+          />
+        </div>
+      )}
 
       {/* Lightbox Modal */}
       {lightboxPhoto && (
