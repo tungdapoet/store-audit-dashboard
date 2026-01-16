@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Upload, MapPin, Plus, Trash2, X, Check, Move } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useLocations, useCreateLocation, useUpdateLocation, useDeleteLocation } from '@/hooks';
@@ -21,6 +21,7 @@ export function FloorPlanViewer({
   const [isUploading, setIsUploading] = useState(false);
   const [isAddingMarker, setIsAddingMarker] = useState(false);
   const [draggingMarkerId, setDraggingMarkerId] = useState<string | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
   const [newMarkerName, setNewMarkerName] = useState('');
   const [pendingMarker, setPendingMarker] = useState<{ x: number; y: number } | null>(null);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -117,32 +118,84 @@ export function FloorPlanViewer({
     }
   }, [pendingMarker, newMarkerName, store.id, createLocation]);
 
-  // Handle marker drag
-  const handleMarkerDragEnd = useCallback(async (
-    locationId: string,
-    e: React.MouseEvent | React.TouchEvent
-  ) => {
-    if (!containerRef.current) return;
+  // Global drag handlers
+  useEffect(() => {
+    if (!draggingMarkerId || !containerRef.current) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.changedTouches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.changedTouches[0].clientY : e.clientY;
-    
-    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      setDragPosition({ x, y });
+    };
 
-    try {
-      await updateLocation.mutateAsync({
-        id: locationId,
-        storeId: store.id,
-        x,
-        y,
-      });
-    } catch (error) {
-      toast.error('Failed to move marker');
-    }
-    setDraggingMarkerId(null);
-  }, [store.id, updateLocation]);
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!containerRef.current || !e.touches[0]) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((e.touches[0].clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.touches[0].clientY - rect.top) / rect.height) * 100));
+      setDragPosition({ x, y });
+    };
+
+    const handleMouseUp = async (e: MouseEvent) => {
+      if (!containerRef.current || !draggingMarkerId) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+
+      try {
+        await updateLocation.mutateAsync({
+          id: draggingMarkerId,
+          storeId: store.id,
+          x,
+          y,
+        });
+        toast.success('Location moved');
+      } catch (error) {
+        toast.error('Failed to move marker');
+      }
+      
+      setDraggingMarkerId(null);
+      setDragPosition(null);
+    };
+
+    const handleTouchEnd = async (e: TouchEvent) => {
+      if (!containerRef.current || !draggingMarkerId || !e.changedTouches[0]) return;
+      
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(100, ((e.changedTouches[0].clientX - rect.left) / rect.width) * 100));
+      const y = Math.max(0, Math.min(100, ((e.changedTouches[0].clientY - rect.top) / rect.height) * 100));
+
+      try {
+        await updateLocation.mutateAsync({
+          id: draggingMarkerId,
+          storeId: store.id,
+          x,
+          y,
+        });
+        toast.success('Location moved');
+      } catch (error) {
+        toast.error('Failed to move marker');
+      }
+      
+      setDraggingMarkerId(null);
+      setDragPosition(null);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [draggingMarkerId, store.id, updateLocation]);
 
   // Delete marker
   const handleDeleteMarker = useCallback(async (locationId: string) => {
@@ -163,6 +216,23 @@ export function FloorPlanViewer({
       toast.error('Failed to delete location');
     }
   }, [store.id, deleteLocation, selectedLocationId]);
+
+  // Start dragging
+  const handleDragStart = useCallback((locationId: string, e: React.MouseEvent | React.TouchEvent) => {
+    if (!isEditMode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDraggingMarkerId(locationId);
+    
+    // Set initial drag position
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const x = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((clientY - rect.top) / rect.height) * 100));
+    setDragPosition({ x, y });
+  }, [isEditMode]);
 
   // No floor plan uploaded
   if (!store.floor_plan_url) {
@@ -257,7 +327,8 @@ export function FloorPlanViewer({
           ref={containerRef}
           className={cn(
             'relative overflow-hidden rounded-xl border border-border flex-1',
-            isAddingMarker && 'cursor-crosshair'
+            isAddingMarker && 'cursor-crosshair',
+            draggingMarkerId && 'cursor-grabbing'
           )}
           onClick={handleFloorPlanClick}
         >
@@ -269,21 +340,27 @@ export function FloorPlanViewer({
           />
 
           {/* Existing Markers */}
-          {locations.map((location) => (
-            <Marker
-              key={location.id}
-              location={location}
-              isSelected={location.id === selectedLocationId}
-              isEditMode={isEditMode}
-              isDragging={location.id === draggingMarkerId}
-              onSelect={() => setSelectedLocationId(
-                selectedLocationId === location.id ? null : location.id
-              )}
-              onDragStart={() => setDraggingMarkerId(location.id)}
-              onDragEnd={(e) => handleMarkerDragEnd(location.id, e)}
-              onDelete={() => handleDeleteMarker(location.id)}
-            />
-          ))}
+          {locations.map((location) => {
+            // If this marker is being dragged, show it at drag position
+            const isDragging = location.id === draggingMarkerId;
+            const displayX = isDragging && dragPosition ? dragPosition.x : location.x;
+            const displayY = isDragging && dragPosition ? dragPosition.y : location.y;
+            
+            return (
+              <Marker
+                key={location.id}
+                location={{ ...location, x: displayX, y: displayY }}
+                isSelected={location.id === selectedLocationId}
+                isEditMode={isEditMode}
+                isDragging={isDragging}
+                onSelect={() => setSelectedLocationId(
+                  selectedLocationId === location.id ? null : location.id
+                )}
+                onDragStart={(e) => handleDragStart(location.id, e)}
+                onDelete={() => handleDeleteMarker(location.id)}
+              />
+            );
+          })}
 
           {/* Pending Marker (being added) */}
           {pendingMarker && (
@@ -371,8 +448,7 @@ interface MarkerProps {
   isEditMode: boolean;
   isDragging: boolean;
   onSelect: () => void;
-  onDragStart: () => void;
-  onDragEnd: (e: React.MouseEvent | React.TouchEvent) => void;
+  onDragStart: (e: React.MouseEvent | React.TouchEvent) => void;
   onDelete: () => void;
 }
 
@@ -383,7 +459,6 @@ function Marker({
   isDragging,
   onSelect,
   onDragStart,
-  onDragEnd,
   onDelete,
 }: MarkerProps) {
   const [showLabel, setShowLabel] = useState(false);
@@ -403,7 +478,7 @@ function Marker({
     <div
       className={cn(
         'absolute z-10 group',
-        isDragging && 'z-30'
+        isDragging && 'z-30 pointer-events-none'
       )}
       style={{
         left: `${location.x}%`,
@@ -437,13 +512,16 @@ function Marker({
 
       {/* Name-based marker */}
       <button
-        onClick={onSelect}
+        onClick={(e) => {
+          if (!isDragging) {
+            e.stopPropagation();
+            onSelect();
+          }
+        }}
         onMouseEnter={() => setShowLabel(true)}
         onMouseLeave={() => setShowLabel(false)}
         onMouseDown={isEditMode ? onDragStart : undefined}
-        onMouseUp={isEditMode && isDragging ? onDragEnd : undefined}
         onTouchStart={isEditMode ? onDragStart : undefined}
-        onTouchEnd={isEditMode && isDragging ? onDragEnd : undefined}
         className={cn(
           'relative flex items-center justify-center',
           'min-w-8 h-8 px-2 rounded-full',
@@ -453,7 +531,8 @@ function Marker({
           'transition-all duration-150',
           'hover:scale-110',
           isSelected ? 'bg-primary scale-110 ring-2 ring-primary ring-offset-2' : 'bg-orange-500',
-          isEditMode && 'cursor-move'
+          isEditMode && !isDragging && 'cursor-grab',
+          isDragging && 'cursor-grabbing scale-125 opacity-80'
         )}
       >
         {getAbbreviation(location.name)}
